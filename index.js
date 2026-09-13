@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Yahan apni nayi GitHub repository ki raw JSON file ka link daal dena
-const PLAYLIST_URL = 'YAHAN_APNA_NEW_RAW_JSON_LINK_DAALEIN';
+const PLAYLIST_URL = 'https://raw.githubusercontent.com/poonamchouhan54/Prt_new_channel/refs/heads/main/YouTube.json';
 
 const HLS_DIR = path.join(__dirname, 'public', 'hls');
 if (!fs.existsSync(HLS_DIR)){
