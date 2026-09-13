@@ -1,12 +1,13 @@
 {
-  "name": "prt-live-streamer",
+  "name": "prt-hls-streamer",
   "version": "1.0.0",
-  "description": "24/7 YouTube Playlist Streamer",
+  "description": "24/7 YouTube to HLS Streamer",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
+    "express": "^4.18.2",
     "node-fetch": "^2.6.7"
   }
 }
