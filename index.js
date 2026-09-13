@@ -37,41 +37,28 @@ async function getPlaylist() {
 
 function streamToHLS(streamUrl) {
     return new Promise((resolve) => {
-        console.log('Starting HLS conversion for direct stream:', streamUrl);
+        console.log('Starting HLS copy for stream:', streamUrl);
         const playlistPath = path.join(HLS_DIR, 'stream.m3u8');
 
+        // Yahan -c copy use kiya hai taaki CPU par koi load na pade aur stream na atke
         const ffmpegArgs = [
             '-reconnect', '1',
             '-reconnect_streamed', '1',
             '-reconnect_delay_max', '5',
             '-i', streamUrl,
-            '-c:v', 'libx264',
-            '-preset', 'ultrafast',
-            '-tune', 'zerolatency',
-            '-vf', "drawtext=text='PRT STREAM':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=20:y=20",
-            '-b:v', '800k',
-            '-maxrate', '800k',
-            '-bufsize', '1600k',
-            '-pix_fmt', 'yuv420p',
-            '-g', '50',
-            '-c:a', 'aac',
-            '-b:a', '96k',
-            '-ar', '44100',
+            '-c:v', 'copy',
+            '-c:a', 'copy',
             '-f', 'hls',
-            '-hls_time', '3',
-            '-hls_list_size', '4',
+            '-hls_time', '4',
+            '-hls_list_size', '5',
             '-hls_flags', 'delete_segments+append_list',
             playlistPath
         ];
 
         const ffmpeg = spawn('ffmpeg', ffmpegArgs);
 
-        ffmpeg.stderr.on('data', (data) => {
-            // console.log(`FFmpeg log: ${data}`);
-        });
-
         ffmpeg.on('close', (code) => {
-            console.log(`Current stream finished with code: ${code}, restarting loop...`);
+            console.log(`Current stream finished with code: ${code}, restarting...`);
             resolve();
         });
 
@@ -86,7 +73,6 @@ async function startStreamingLoop() {
     while (true) {
         const playlist = await getPlaylist();
         if (!playlist || playlist.length === 0) {
-            console.log('Playlist is empty, retrying in 10 seconds...');
             await new Promise(r => setTimeout(r, 10000));
             continue;
         }
