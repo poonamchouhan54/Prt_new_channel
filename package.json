@@ -1,7 +1,7 @@
 {
   "name": "prt-hls-streamer",
   "version": "1.0.0",
-  "description": "24/7 YouTube to HLS Streamer",
+  "description": "24/7 Direct Stream to HLS Streamer",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
