@@ -7,7 +7,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-const PLAYLIST_URL = 'https://raw.githubusercontent.com/poonamchouhan54/Prt_new_channel/refs/heads/main/YouTube.json';
+const PLAYLIST_URL = 'https://raw.githubusercontent.com/poonamchouhan54/Prt_new_channel/refs/heads/main/playlist.json';
 
 const HLS_DIR = path.join(__dirname, 'public', 'hls');
 if (!fs.existsSync(HLS_DIR)){
@@ -35,36 +35,9 @@ async function getPlaylist() {
     }
 }
 
-async function getDirectStreamUrl(youtubeUrl) {
-    return new Promise((resolve, reject) => {
-        // yt-dlp me user-agent aur client options add kiye hain taaki block na ho
-        const ytdlp = spawn('yt-dlp', [
-            '-g', 
-            '-f', 'best[height<=720]',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            youtubeUrl
-        ]);
-        
-        let url = '';
-        let errLog = '';
-
-        ytdlp.stdout.on('data', (data) => { url += data.toString(); });
-        ytdlp.stderr.on('data', (data) => { errLog += data.toString(); });
-
-        ytdlp.on('close', (code) => {
-            if (code === 0 && url.trim()) {
-                resolve(url.trim().split('\n')[0]);
-            } else {
-                console.error('yt-dlp error details:', errLog);
-                reject(new Error('Failed to get direct URL from yt-dlp'));
-            }
-        });
-    });
-}
-
 function streamToHLS(streamUrl) {
     return new Promise((resolve) => {
-        console.log('Starting HLS conversion for:', streamUrl);
+        console.log('Starting HLS conversion for direct stream:', streamUrl);
         const playlistPath = path.join(HLS_DIR, 'stream.m3u8');
 
         const ffmpegArgs = [
@@ -90,8 +63,12 @@ function streamToHLS(streamUrl) {
 
         const ffmpeg = spawn('ffmpeg', ffmpegArgs);
 
+        ffmpeg.stderr.on('data', (data) => {
+            // console.log(`FFmpeg log: ${data}`);
+        });
+
         ffmpeg.on('close', (code) => {
-            console.log(`Current video stream finished with code: ${code}`);
+            console.log(`Current stream finished with code: ${code}`);
             resolve();
         });
 
@@ -114,8 +91,7 @@ async function startStreamingLoop() {
         for (const video of playlist) {
             console.log(`Now playing: ${video.title}`);
             try {
-                const directUrl = await getDirectStreamUrl(video.url);
-                await streamToHLS(directUrl);
+                await streamToHLS(video.url);
             } catch (err) {
                 console.error(`Error playing ${video.title}:`, err.message);
                 await new Promise(r => setTimeout(r, 5000));
