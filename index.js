@@ -1,102 +1,117 @@
+const express = require('express');
 const fetch = require('node-fetch');
 const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
-const PLAYLIST_URL = 'https://raw.githubusercontent.com/Prtstream820894/Prt-channel-live/refs/heads/main/YouTube.json';
-// Aap apna RTMP URL aur Stream Key yahan daalenge (jaise YouTube Live ya koi aur server)
-const RTMP_SERVER = process.env.RTMP_URL || 'rtmp://a.rtmp.youtube.com/live2/YOUR_STREAM_KEY';
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+// Yahan apni nayi GitHub repository ki raw JSON file ka link daal dena
+const PLAYLIST_URL = 'YAHAN_APNA_NEW_RAW_JSON_LINK_DAALEIN';
+
+const HLS_DIR = path.join(__dirname, 'public', 'hls');
+if (!fs.existsSync(HLS_DIR)){
+    fs.mkdirSync(HLS_DIR, { recursive: true });
+}
+
+app.use('/hls', express.static(HLS_DIR));
+
+app.get('/', (req, res) => {
+    res.send('PRT Stream HLS Server is running! Stream link: /hls/stream.m3u8');
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    startStreamingLoop();
+});
 
 async function getPlaylist() {
     try {
         const response = await fetch(PLAYLIST_URL);
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
-        console.error('Playlist fetch karne me error:', error);
+        console.error('Playlist fetch error:', error);
         return [];
     }
 }
 
 async function getDirectStreamUrl(youtubeUrl) {
     return new Promise((resolve, reject) => {
-        // yt-dlp se direct playable link nikalna
-        const ytdlp = spawn('yt-dlp', ['-g', '-f', 'best', youtubeUrl]);
+        const ytdlp = spawn('yt-dlp', ['-g', '-f', 'best[height<=720]', youtubeUrl]);
         let url = '';
 
-        ytdlp.stdout.on('data', (data) => {
-            url += data.toString();
-        });
+        ytdlp.stdout.on('data', (data) => { url += data.toString(); });
 
         ytdlp.on('close', (code) => {
             if (code === 0 && url.trim()) {
                 resolve(url.trim().split('\n')[0]);
             } else {
-                reject(new Error('Direct URL nikalne me fail ho gaya'));
+                reject(new Error('Failed to get direct URL from yt-dlp'));
             }
         });
     });
 }
 
-function streamVideo(streamUrl) {
-    return new Promise((resolve, reject) => {
-        console.h('Streaming start ho rahi hai:', streamUrl);
+function streamToHLS(streamUrl) {
+    return new Promise((resolve) => {
+        console.log('Starting HLS conversion for:', streamUrl);
+        const playlistPath = path.join(HLS_DIR, 'stream.m3u8');
 
-        // FFmpeg command jo video ko RTMP par push karegi
         const ffmpegArgs = [
             '-re',
             '-i', streamUrl,
             '-c:v', 'libx264',
             '-preset', 'veryfast',
-            '-maxrate', '3000k',
-            '-bufsize', '6000k',
+            '-tune', 'zerolatency',
+            '-b:v', '1500k',
+            '-maxrate', '1500k',
+            '-bufsize', '3000k',
             '-pix_fmt', 'yuv420p',
             '-g', '50',
             '-c:a', 'aac',
             '-b:a', '128k',
             '-ar', '44100',
-            '-f', 'flv',
-            RTMP_SERVER
+            '-f', 'hls',
+            '-hls_time', '4',
+            '-hls_list_size', '5',
+            '-hls_flags', 'delete_segments+append_list',
+            playlistPath
         ];
 
         const ffmpeg = spawn('ffmpeg', ffmpegArgs);
 
-        ffmpeg.stderr.on('data', (data) => {
-            // FFmpeg logs (agar zaroorat ho toh dekh sakte hain)
-            // console.log(`ffmpeg: ${data}`);
-        });
-
         ffmpeg.on('close', (code) => {
-            console.log(`Video stream khatam huyi, code: ${code}`);
+            console.log(`Current video stream finished with code: ${code}`);
             resolve();
         });
 
         ffmpeg.on('error', (err) => {
             console.error('FFmpeg error:', err);
-            reject(err);
+            resolve();
         });
     });
 }
 
-async function startLoop() {
+async function startStreamingLoop() {
     while (true) {
         const playlist = await getPlaylist();
         if (!playlist || playlist.length === 0) {
-            console.log('Playlist khali hai, 10 second baad dobara koshish kar rahe hain...');
+            console.log('Playlist is empty, retrying in 10 seconds...');
             await new Promise(r => setTimeout(r, 10000));
             continue;
         }
 
         for (const video of playlist) {
-            console.log(`Play ho raha hai: ${video.title} (${video.url})`);
+            console.log(`Now playing: ${video.title}`);
             try {
                 const directUrl = await getDirectStreamUrl(video.url);
-                await streamVideo(directUrl);
+                await streamToHLS(directUrl);
             } catch (err) {
-                console.error(`Error streaming ${video.title}:`, err.message);
-                // Agar ek video me error aaye toh agle video par chale jao
+                console.error(`Error playing ${video.title}:`, err.message);
+                await new RepositoryQueryDelay?.();
                 await new Promise(r => setTimeout(r, 5000));
             }
         }
     }
 }
-
-startLoop();
