@@ -37,15 +37,25 @@ async function getPlaylist() {
 
 async function getDirectStreamUrl(youtubeUrl) {
     return new Promise((resolve, reject) => {
-        const ytdlp = spawn('yt-dlp', ['-g', '-f', 'best[height<=720]', youtubeUrl]);
+        // yt-dlp me user-agent aur client options add kiye hain taaki block na ho
+        const ytdlp = spawn('yt-dlp', [
+            '-g', 
+            '-f', 'best[height<=720]',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            youtubeUrl
+        ]);
+        
         let url = '';
+        let errLog = '';
 
         ytdlp.stdout.on('data', (data) => { url += data.toString(); });
+        ytdlp.stderr.on('data', (data) => { errLog += data.toString(); });
 
         ytdlp.on('close', (code) => {
             if (code === 0 && url.trim()) {
                 resolve(url.trim().split('\n')[0]);
             } else {
+                console.error('yt-dlp error details:', errLog);
                 reject(new Error('Failed to get direct URL from yt-dlp'));
             }
         });
