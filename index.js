@@ -40,28 +40,26 @@ function streamToHLS(streamUrl) {
         console.log('Starting HLS conversion for direct stream:', streamUrl);
         const playlistPath = path.join(HLS_DIR, 'stream.m3u8');
 
-        // FFmpeg args with Watermark/Logo text and timeout stability fixes
         const ffmpegArgs = [
             '-reconnect', '1',
             '-reconnect_streamed', '1',
             '-reconnect_delay_max', '5',
             '-i', streamUrl,
             '-c:v', 'libx264',
-            '-preset', 'veryfast',
+            '-preset', 'ultrafast',
             '-tune', 'zerolatency',
-            // Yahan video ke upar top-left me "PRT STREAM" ka watermark/logo text add kar diya hai
             '-vf', "drawtext=text='PRT STREAM':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=20:y=20",
-            '-b:v', '1200k',
-            '-maxrate', '1200k',
-            '-bufsize', '2400k',
+            '-b:v', '800k',
+            '-maxrate', '800k',
+            '-bufsize', '1600k',
             '-pix_fmt', 'yuv420p',
             '-g', '50',
             '-c:a', 'aac',
-            '-b:a', '128k',
+            '-b:a', '96k',
             '-ar', '44100',
             '-f', 'hls',
-            '-hls_time', '4',
-            '-hls_list_size', '5',
+            '-hls_time', '3',
+            '-hls_list_size', '4',
             '-hls_flags', 'delete_segments+append_list',
             playlistPath
         ];
@@ -69,12 +67,11 @@ function streamToHLS(streamUrl) {
         const ffmpeg = spawn('ffmpeg', ffmpegArgs);
 
         ffmpeg.stderr.on('data', (data) => {
-            // Uncomment line below if you want to debug ffmpeg logs
             // console.log(`FFmpeg log: ${data}`);
         });
 
         ffmpeg.on('close', (code) => {
-            console.log(`Current stream finished with code: {code}, restarting loop...`);
+            console.log(`Current stream finished with code: ${code}, restarting loop...`);
             resolve();
         });
 
